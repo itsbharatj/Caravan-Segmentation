@@ -1,0 +1,9 @@
+#Dataset Folder: 
+dataset/
+
+#Extra Utils and envs:
+get-pip.py
+dl/
+
+__pycache__/
+
