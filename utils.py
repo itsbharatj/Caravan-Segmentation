@@ -7,7 +7,7 @@ import os
 def save_checkpoint(state, filename="my_checkpoint.pth.tar"):
     print("===> Saving Checkpoint")
     torch.save(state,filename)
-    print(f"Saved Checkpoint at: {os.getcwd}/{filename}")
+    print(f"Saved Checkpoint at: {os.getcwd()}/{filename}")
 
 def load_checkpoint(checkpoint, model): 
     print("Loading Checkpoint")
@@ -66,7 +66,7 @@ def check_accuracy(loader,model, device="mps"):
     with torch.no_grad(): 
         for x,y in loader: 
             x = x.to(device)
-            y = y.to(device)
+            y = y.to(device).unsqueeze(1)
 
             preds = torch.sigmoid(model(x))
             preds = (preds > 0.5).float()

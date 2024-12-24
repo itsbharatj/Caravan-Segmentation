@@ -1,14 +1,11 @@
-# %%
-!pip install -U albumentations
-
-# %%
 import torch 
 import albumentations as A 
 from albumentations.pytorch import ToTensorV2 
 from tqdm import tqdm 
-import torch.nn as nn 
 import torch.optim as optim 
 from model import UNET
+import torch.nn as nn 
+import os
 from utils import  (
     load_checkpoint,
     save_checkpoint, 
@@ -17,7 +14,6 @@ from utils import  (
     save_predicitions_as_imgs
 )
 
-# %%
 ## Hyperparameters: 
 
 LEARNING_RATE = 1e-4
@@ -36,48 +32,50 @@ VAL_MASK_DIR = "/Users/bharatjain/Desktop/Deep Learning/UNet/dataset/valid_masks
 # %%
 # ## It will do one epoch of training: 
 
-# def train_fn(loader,model,optimizer,loss_fn,scaler):
-#     loop = tqdm(loader)
-
-#     for batch_idx,(data,targets) in enumerate(loop): 
-#         data = data.to(device=DEVICE)
-#         targets = targets.float().unsqueeze(1).to(device=DEVICE)
-
-#         #forward: 
-#         with torch.autocast(device_type='mps'):
-#             predictions = model(data)
-#             loss = loss_fn(predictions,targets)
-        
-
-#         #backward: 
-#         optimizer.zero_grad()
-#         scaler.scale(loss).backward()
-#         scaler.step(optimizer)
-#         scaler.update()
-
-#         ##Update tqdm loop: 
-#         loop.set_postfix(loss=loss.item())
-
-def train_fn(loader, model, optimizer, loss_fn, scaler):
+def train_fn(loader,model,optimizer,loss_fn,scaler):
     loop = tqdm(loader)
-    
-    for batch_idx, (data, targets) in enumerate(loop):
+
+    for batch_idx,(data,targets) in enumerate(loop): 
         data = data.to(device=DEVICE)
         targets = targets.float().unsqueeze(1).to(device=DEVICE)
+
+        #forward: 
+        with torch.autocast(device_type=DEVICE):
+            predictions = model(data)
+            loss = loss_fn(predictions,targets)
         
-        # Forward pass (without autocast for MPS)
-        predictions = model(data)
-        loss = loss_fn(predictions, targets)
-            
-        # Backward pass
+
+        #backward: 
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-            
-        # Update tqdm loop
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        ##Update tqdm loop: 
         loop.set_postfix(loss=loss.item())
 
-# %%
+
+## For MPS: 
+
+# def train_fn(loader, model, optimizer, loss_fn, scaler):
+#     loop = tqdm(loader)
+    
+#     for batch_idx, (data, targets) in enumerate(loop):
+#         data = data.to(device=DEVICE)
+#         targets = targets.float().unsqueeze(1).to(device=DEVICE)
+        
+#         # Forward pass (without autocast for MPS)
+#         predictions = model(data)
+#         loss = loss_fn(predictions, targets)
+            
+#         # Backward pass
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
+            
+#         # Update tqdm loop
+#         loop.set_postfix(loss=loss.item())
+
 def main(): 
     train_transform = A.Compose([
         A.Resize(height=IMAGE_HEIGHT, width=IMAGE_WIDTH),
@@ -113,10 +111,20 @@ def main():
         VAL_MASK_DIR,
         BATCH_SIZE,
         train_transform,
-        val_transforms
-    )
+        val_transforms,
+        NUM_WORKERS,
+        PIN_MEMORY
+    ) 
 
-    # Remove the scaler initialization
+    if LOAD_MODEL: 
+        load_checkpoint(torch.load("my_checkpoint.pth.tar"),model)
+    
+    print("Metrics for the Validation Set")
+    check_accuracy(val_loader, model, device=DEVICE)
+
+
+    scaler = torch.amp.GradScaler(DEVICE)
+
     for epoch in range(NUM_EPOCHS):
         train_fn(train_loader, model, optimizer, loss_fn, None)  # Pass None instead of scaler
         
@@ -128,22 +136,16 @@ def main():
         save_checkpoint(checkpoint)
         
         # Check accuracy
+        print("Metrics for the Validation Set")
         check_accuracy(val_loader, model, device=DEVICE)
+        print("Metrics for the Train Set")
+        check_accuracy(train_loader, model, device=DEVICE)
         
         # Save predictions
         save_predicitions_as_imgs(
-            val_loader, model, folder="saved_images/", device=DEVICE
+            val_loader, model, folder=f"{os.getcwd()}/saved_images/", device=DEVICE
         )
 
 
-# %%
 if __name__ == "__main__":
     main()
-
-# %%
-
-
-# %%
-
-
-

@@ -1,5 +1,6 @@
 #Dataset Folder: 
 dataset/
+saved_images/
 
 #Extra Utils and envs:
 get-pip.py

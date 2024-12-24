@@ -78,7 +78,6 @@ class UNET(nn.Module):
         return self.final_conv(x)
 
 
-# %%
 def test(): 
     x = torch.randn((3,1,161,161))
     print(x.shape)
@@ -91,7 +90,6 @@ def test():
 if __name__ == "__main__":
     test()
 
-# %%
 
 
 
